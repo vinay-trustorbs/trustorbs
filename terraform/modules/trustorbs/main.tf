@@ -30,27 +30,16 @@ provider "azurerm" {
   features {}
 }
 
+locals {
+  prefix = var.environment == "customer" ? random_string.deployment_prefix[0].result : var.environment
+  uri_prefix = var.environment == "customer" ? random_string.deployment_prefix[0].result : var.uri_prefix
+}
+
 resource "random_string" "deployment_prefix" {
+  count   = var.environment == "customer" ? 1 : 0
   length  = 8
   upper   = false
   special = false
-}
-
-variable "tags" {
-  default = {}
-}
-
-# Variables for DNS Zone configuration
-variable "dns_zone_name" {
-  description = "The name of the DNS zone"
-  type        = string
-  default     = "demo-trustorbs.com"
-}
-
-variable "dns_zone_resource_group_name" {
-  description = "The name of the resource group containing the DNS zone"
-  type        = string
-  default     = "test_trustorbs"
 }
 
 data "azurerm_dns_zone" "domain" {
@@ -59,17 +48,17 @@ data "azurerm_dns_zone" "domain" {
 }
 
 resource "azurerm_resource_group" "rg" {
-  name     = "rg-${random_string.deployment_prefix.result}"
+  name     = "rg-${local.prefix}"
   location = "eastus"
-
-  tags = merge(var.tags, {
-    "Deployment" = random_string.deployment_prefix.result
+  tags     = merge(var.tags, {
+    "Environment" = var.environment
+    "Deployment"  = local.prefix
   })
 }
 
 # User Assigned Identity for Cert Manager
 resource "azurerm_user_assigned_identity" "cert_manager" {
-  name                = "cert-manager-${random_string.deployment_prefix.result}"
+  name                = "cert-manager-${local.prefix}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
 }
@@ -82,10 +71,10 @@ resource "azurerm_role_assignment" "dns_contributor" {
 }
 
 resource "azurerm_kubernetes_cluster" "aks" {
-  name                      = "aks-${random_string.deployment_prefix.result}"
+  name                      = "aks-${local.prefix}"
   location                  = azurerm_resource_group.rg.location
   resource_group_name       = azurerm_resource_group.rg.name
-  dns_prefix                = random_string.deployment_prefix.result
+  dns_prefix                = local.prefix
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
 
@@ -105,7 +94,8 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   tags = merge(var.tags, {
-    "Deployment" = random_string.deployment_prefix.result
+    "Environment" = var.environment
+    "Deployment" = local.prefix
   })
 }
 
@@ -173,7 +163,7 @@ resource "kubernetes_service" "keycloak_loadbalancer" {
     name      = "keycloak-loadbalancer"
     namespace = "default"
     annotations = {
-      "service.beta.kubernetes.io/azure-dns-label-name" = "keycloak-loadbalancer-${random_string.deployment_prefix.result}"
+      "service.beta.kubernetes.io/azure-dns-label-name" = "keycloak-loadbalancer-${local.prefix}"
     }
   }
   spec {
@@ -212,11 +202,11 @@ resource "kubectl_manifest" "cluster_issuer" {
 
 # DNS CNAME Record
 resource "azurerm_dns_cname_record" "keycloak" {
-  name                = random_string.deployment_prefix.result
+  name                = local.uri_prefix
   zone_name           = var.dns_zone_name
   resource_group_name = var.dns_zone_resource_group_name
   ttl                 = 300
-  record              = "keycloak-loadbalancer-${random_string.deployment_prefix.result}.eastus.cloudapp.azure.com"
+  record              = "keycloak-loadbalancer-${local.prefix}.eastus.cloudapp.azure.com"
 
   depends_on = [kubernetes_service.keycloak_loadbalancer]
 }
@@ -224,8 +214,8 @@ resource "azurerm_dns_cname_record" "keycloak" {
 # Certificate for Keycloak
 resource "kubectl_manifest" "certificate" {
   yaml_body = templatefile(("${path.module}/cert-manager/certificate.yaml"), {
-    commonName : "${random_string.deployment_prefix.result}.${var.dns_zone_name}",
-    dnsNames : "${random_string.deployment_prefix.result}.${var.dns_zone_name}"
+    commonName : "${local.uri_prefix}.${var.dns_zone_name}",
+    dnsNames : "${local.uri_prefix}.${var.dns_zone_name}"
   })
 
   depends_on = [azurerm_dns_cname_record.keycloak, helm_release.cert_manager]
@@ -249,13 +239,13 @@ resource "helm_release" "keycloak" {
   chart     = "codecentric/keycloakx"
   namespace = "default"
   values = [templatefile("${path.module}/keycloak/https-keycloak-server-values.yaml", {
-    hostname = "${random_string.deployment_prefix.result}.${var.dns_zone_name}"
+    hostname = "${local.uri_prefix}.${var.dns_zone_name}"
   })]
   depends_on = [helm_release.keycloak-db, kubectl_manifest.certificate]
 }
 
 output "deployment_prefix" {
-  value = random_string.deployment_prefix.result
+  value = local.prefix
 }
 
 output "aks_cluster_name" {
@@ -263,5 +253,5 @@ output "aks_cluster_name" {
 }
 
 output "keycloak_url" {
-  value = "https://${random_string.deployment_prefix.result}.${var.dns_zone_name}"
+  value = "https://${local.uri_prefix}.${var.dns_zone_name}"
 }

@@ -1,4 +1,5 @@
 /documents/service-principle.json
+/documents/deployment-multiple-customers.txt
 
 # Ignore Terraform state files
 *.tfstate
@@ -16,3 +17,4 @@ crash.log
 
 # Ignore local execution plans
 *.tfplan
+*.hcl
