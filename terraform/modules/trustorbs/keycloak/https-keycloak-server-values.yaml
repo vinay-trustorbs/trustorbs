@@ -1,7 +1,3 @@
-# This is an example configuration, for production grade configuration see the Keycloak documentation.
-# See https://www.keycloak.org/server/configuration
-# See https://www.keycloak.org/server/all-config
-
 command:
   - "/opt/keycloak/bin/kc.sh"
   - "--verbose"
@@ -11,7 +7,7 @@ command:
   - "--https-certificate-file=/etc/tls/tls.crt"
   - "--https-certificate-key-file=/etc/tls/tls.key"
   - "--hostname=${hostname}"
-  - "--hostname-strict=true" 
+  - "--hostname-strict=true"
 
 image:
   tag: "26.0.6"
@@ -51,12 +47,33 @@ secrets:
       user: admin
       password: secret
 
+extraInitContainers: |
+  - name: theme-downloader
+    image: curlimages/curl
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+    args:
+      - -c
+      - |
+        echo "Downloading Keycloak theme JAR..."
+        curl -L -f -S -o /extensions/keycloak-theme.jar "https://trustorbstfstate2025.blob.core.windows.net/keycloak-themes/keycloak-theme.jar?se=2025-12-31T23%3A59%3A59Z&sp=r&sv=2022-11-02&sr=b&sig=2%2FB%2FZXo3rNb7rh0SzN0tQVd84kiNHmBBmd7sAcyK5dc%3D"
+    volumeMounts:
+      - name: extensions
+        mountPath: /extensions
+
 extraVolumes: |
+  - name: extensions
+    emptyDir: {}
+
   - name: tls-volume
     secret:
       secretName: trustorbs-tls
 
 extraVolumeMounts: |
+  - name: extensions
+    mountPath: /opt/keycloak/providers
+
   - name: tls-volume
     mountPath: /etc/tls
     readOnly: true

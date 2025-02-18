@@ -80,8 +80,10 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   default_node_pool {
     name       = "default"
-    node_count = 1
+    min_count  = 1
+    max_count  = 2
     vm_size    = "Standard_B2s"
+    auto_scaling_enabled = true
   }
 
   identity {
@@ -242,6 +244,7 @@ resource "helm_release" "keycloak" {
     hostname = "${local.uri_prefix}.${var.dns_zone_name}"
   })]
   depends_on = [helm_release.keycloak-db, kubectl_manifest.certificate]
+  recreate_pods = true
 }
 
 output "deployment_prefix" {
