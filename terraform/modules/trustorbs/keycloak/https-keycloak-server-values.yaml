@@ -1,13 +1,14 @@
 command:
   - "/opt/keycloak/bin/kc.sh"
   - "--verbose"
-  - "start-dev"
-  - "--http-port=8080"
+  - "start"
   - "--https-port=8443"
   - "--https-certificate-file=/etc/tls/tls.crt"
   - "--https-certificate-key-file=/etc/tls/tls.key"
   - "--hostname=${hostname}"
   - "--hostname-strict=true"
+  - "--metrics-enabled=true"
+  - "--health-enabled=true"
 
 image:
   tag: "26.0.6"
@@ -103,3 +104,7 @@ startupProbe: |
   timeoutSeconds: 1
   failureThreshold: 60
   periodSeconds: 5
+
+# Add metrics configuration
+metrics:
+  enabled: true

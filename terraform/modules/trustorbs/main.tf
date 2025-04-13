@@ -247,6 +247,23 @@ resource "helm_release" "keycloak" {
   recreate_pods = true
 }
 
+# Prometheus Installation
+resource "helm_release" "prometheus" {
+  name             = "prometheus"
+  chart            = "prometheus-community/prometheus"
+  namespace        = "monitoring"
+  create_namespace = true
+  version          = "27.8.0"
+
+  values = [
+    templatefile("${path.module}/telemetry/prometheus-values.yaml", {
+      keycloak_hostname = "${local.uri_prefix}.${var.dns_zone_name}"
+    })
+  ]
+
+  depends_on = [helm_release.keycloak]
+}
+
 output "deployment_prefix" {
   value = local.prefix
 }
