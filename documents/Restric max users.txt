@@ -1,0 +1,62 @@
+# Postgres trigger to limit number of Keycloak users per realm 
+
+1. Exec to Postgres container
+
+kubectl exec -it ...
+
+
+2. Connect to Keycloak database
+
+psql -U <keycloak-database-user> -d <keycloak-database-name> 
+
+
+3. Create Postgres function and trigger (one time per deployment)
+
+CREATE OR REPLACE FUNCTION check_user_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+    user_count INTEGER;
+    max_users INTEGER;
+BEGIN
+    -- Get limit
+    SELECT value::INTEGER INTO max_users
+    FROM realm_attribute
+    WHERE name = 'maxUsers' AND realm_id = NEW.realm_id;
+
+    -- Check if limit set for this realm
+    IF max_users IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT COUNT(*) INTO user_count
+    FROM user_entity
+    WHERE realm_id = NEW.realm_id;
+
+    IF user_count >= max_users THEN
+        RAISE EXCEPTION 'User limit of % exceeded for realm_id %', max_users, NEW.realm_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER trigger_check_user_limit
+BEFORE INSERT ON user_entity
+FOR EACH ROW
+EXECUTE FUNCTION check_user_limit();
+
+
+4. Set max user limit per realm
+
+Replace 'master' by name or your realm and '5' by max number of users in this realm.
+
+INSERT INTO realm_attribute (name, realm_id, value)
+VALUES (
+    'maxUsers',
+    (SELECT id FROM realm WHERE name = 'master'),
+    '5'
+);
+
+COMMIT;
+
