@@ -8,7 +8,7 @@ TrustOrbs is an infrastructure-as-code project that deploys multi-tenant Keycloa
 - **Cloud Platform**: Microsoft Azure (AKS, Azure DNS, Resource Groups)
 - **Container Orchestration**: Kubernetes (Azure Kubernetes Service)
 - **Identity Management**: Keycloak (codecentric/keycloakx Helm chart)
-- **Database**: PostgreSQL (bitnami/postgresql Helm chart)
+- **Database**: PostgreSQL (CloudNativePG operator)
 - **Certificate Management**: Cert-Manager (jetstack/cert-manager v1.16.2) with Let's Encrypt
 - **Monitoring**: Prometheus (prometheus-community/prometheus v27.8.0)
 - **Package Management**: Helm (>= 2.16.0)
