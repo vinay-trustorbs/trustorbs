@@ -1,0 +1,22 @@
+# CloudNativePG Operator Helm Values
+# This configures the CloudNativePG operator for managing PostgreSQL clusters
+
+# Monitoring configuration
+monitoring:
+  # Disable PodMonitor since Prometheus Operator CRDs are not installed
+  podMonitorEnabled: false
+  
+# Resource limits for the operator
+resources:
+  limits:
+    cpu: 200m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Configure operator logging
+config:
+  data:
+    INHERITED_LABELS: "app.kubernetes.io/name,app.kubernetes.io/instance"
+    WATCH_NAMESPACE: ""  # Watch all namespaces

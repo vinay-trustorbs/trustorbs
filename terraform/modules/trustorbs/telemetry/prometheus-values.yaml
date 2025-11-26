@@ -1,0 +1,33 @@
+server:
+  persistentVolume:
+    enabled: true
+    size: 8Gi
+
+  service:
+    type: ClusterIP
+
+  global:
+    scrape_interval: 15s
+
+serverFiles:
+  prometheus.yml:    
+    scrape_configs:
+      - job_name: 'keycloak'
+        metrics_path: '/auth/metrics'
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        static_configs:
+          - targets: ['keycloak-keycloakx-http.default.svc.cluster.local:9000']
+
+    rule_files:
+      - "alert.rules.yml"
+
+    alerting:
+      alertmanagers:
+        - scheme: http
+          static_configs:
+            - targets: ['alertmanager:9093']
+            
+alertmanager:
+  enabled: false
