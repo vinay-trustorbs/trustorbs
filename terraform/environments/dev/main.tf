@@ -7,8 +7,12 @@ module "trustorbs" {
 
   environment                  = "dev"
   uri_prefix                   = "auth"
-  dns_zone_name                = "demo-trustorbs.com"
+  dns_zone_name                = "test-trustorbs.com"
   dns_zone_resource_group_name = "test_trustorbs"
+
+  # Database configuration for dev environment
+  database_instances    = 1
+  database_storage_size = "20Gi"
 
   tags = {
     Environment = "development"

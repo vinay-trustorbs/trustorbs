@@ -223,16 +223,33 @@ resource "kubectl_manifest" "certificate" {
   depends_on = [azurerm_dns_cname_record.keycloak, helm_release.cert_manager]
 }
 
-# PostgreSQL Installation
-resource "helm_release" "keycloak-db" {
-  name       = "keycloak-db"
-  chart      = "bitnami/postgresql"
-  version    = "16.3.5"
-  namespace  = "default"
-  values     = [file("${path.module}/keycloak/keycloak-db-values.yaml")]
-  depends_on = [kubectl_manifest.cluster_issuer]
-  wait       = true
-  timeout    = 300
+# CloudNativePG Operator Installation
+resource "helm_release" "cloudnativepg_operator" {
+  name             = "cnpg"
+  repository       = "https://cloudnative-pg.github.io/charts"
+  chart            = "cloudnative-pg"
+  namespace        = "cnpg-system"
+  create_namespace = true
+  wait             = true
+  timeout          = 600
+
+  values = [
+    file("${path.module}/database/cloudnativepg-operator-values.yaml")
+  ]
+
+  depends_on = [azurerm_kubernetes_cluster.aks]
+}
+
+# PostgreSQL Cluster for Keycloak
+resource "kubectl_manifest" "keycloak_database_cluster" {
+  yaml_body = templatefile("${path.module}/database/keycloak-database-cluster.yaml", {
+    database_instances    = var.database_instances
+    database_storage_size = var.database_storage_size
+  })
+
+  wait = true
+
+  depends_on = [helm_release.cloudnativepg_operator]
 }
 
 # Keycloak Installation
@@ -243,7 +260,7 @@ resource "helm_release" "keycloak" {
   values = [templatefile("${path.module}/keycloak/https-keycloak-server-values.yaml", {
     hostname = "${local.uri_prefix}.${var.dns_zone_name}"
   })]
-  depends_on = [helm_release.keycloak-db, kubectl_manifest.certificate]
+  depends_on = [kubectl_manifest.keycloak_database_cluster, kubectl_manifest.certificate]
   recreate_pods = true
 }
 

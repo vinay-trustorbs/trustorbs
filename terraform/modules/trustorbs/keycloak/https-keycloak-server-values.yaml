@@ -9,6 +9,7 @@ command:
   - "--hostname-strict=true"
   - "--metrics-enabled=true"
   - "--health-enabled=true"
+  - "--cache=local"
 
 image:
   tag: "26.0.6"
@@ -27,17 +28,17 @@ extraEnv: |
   - name: JAVA_OPTS_APPEND
     value: >-
       -XX:MaxRAMPercentage=50.0
-      -Djgroups.dns.query={{ include "keycloak.fullname" . }}-headless
 
 dbchecker:
   enabled: true
 
 database:
   vendor: postgres
-  hostname: keycloak-db-postgresql
+  hostname: keycloak-database-rw
   port: 5432
-  username: dbusername
-  password: dbpassword
+  existingSecret: keycloak-database-app
+  existingSecretPasswordKey: password
+  existingSecretUsernameKey: username
   database: keycloak
 
 secrets:
