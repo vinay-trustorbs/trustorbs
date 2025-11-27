@@ -281,6 +281,103 @@ resource "helm_release" "prometheus" {
   depends_on = [helm_release.keycloak]
 }
 
+# Grafana Dashboard ConfigMap
+resource "kubernetes_config_map" "grafana_dashboards" {
+  metadata {
+    name      = "grafana-dashboards"
+    namespace = "monitoring"
+    labels = {
+      grafana_dashboard = "1"
+    }
+  }
+  
+  data = {
+    "keycloak-metrics.json" = file("${path.module}/telemetry/keycloak-dashboard.json")
+  }
+
+  depends_on = [helm_release.prometheus]
+}
+
+# Grafana Installation
+resource "helm_release" "grafana" {
+  name       = "grafana"
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "grafana"
+  namespace  = "monitoring"
+  version    = "8.8.2"
+  wait       = true
+  timeout    = 600
+
+  values = [
+    templatefile("${path.module}/telemetry/grafana-values.yaml", {
+      grafana_admin_username = var.grafana_admin_username
+      grafana_admin_password = var.grafana_admin_password
+      grafana_domain         = "grafana-${local.uri_prefix}.${var.dns_zone_name}"
+    })
+  ]
+
+  depends_on = [
+    helm_release.prometheus,
+    kubernetes_config_map.grafana_dashboards
+  ]
+}
+
+# Grafana Certificate
+resource "kubectl_manifest" "grafana_certificate" {
+  yaml_body = templatefile("${path.module}/cert-manager/grafana-certificate.yaml", {
+    commonName = "grafana-${local.uri_prefix}.${var.dns_zone_name}",
+    dnsNames   = "grafana-${local.uri_prefix}.${var.dns_zone_name}"
+  })
+
+  depends_on = [
+    kubectl_manifest.cluster_issuer,
+    helm_release.grafana
+  ]
+}
+
+# Grafana LoadBalancer Service with TLS
+resource "kubernetes_service" "grafana_loadbalancer" {
+  metadata {
+    name      = "grafana-loadbalancer"
+    namespace = "monitoring"
+    annotations = {
+      "service.beta.kubernetes.io/azure-dns-label-name" = "grafana-loadbalancer-${local.prefix}"
+    }
+  }
+
+  spec {
+    selector = {
+      "app.kubernetes.io/name"     = "grafana"
+      "app.kubernetes.io/instance" = "grafana"
+    }
+
+    port {
+      port        = 443
+      target_port = 3000
+      protocol    = "TCP"
+      name        = "https"
+    }
+
+    type = "LoadBalancer"
+  }
+
+  depends_on = [
+    helm_release.grafana,
+    kubectl_manifest.grafana_certificate
+  ]
+}
+
+# Grafana DNS CNAME Record
+resource "azurerm_dns_cname_record" "grafana" {
+  name                = "grafana-${local.uri_prefix}"
+  zone_name           = var.dns_zone_name
+  resource_group_name = var.dns_zone_resource_group_name
+  ttl                 = 300
+  record              = "grafana-loadbalancer-${local.prefix}.eastus.cloudapp.azure.com"
+
+  depends_on = [kubernetes_service.grafana_loadbalancer]
+}
+
 output "deployment_prefix" {
   value = local.prefix
 }
@@ -291,4 +388,9 @@ output "aks_cluster_name" {
 
 output "keycloak_url" {
   value = "https://${local.uri_prefix}.${var.dns_zone_name}"
+}
+
+output "grafana_url" {
+  value       = "https://grafana-${local.uri_prefix}.${var.dns_zone_name}"
+  description = "Grafana dashboard URL (HTTPS)"
 }

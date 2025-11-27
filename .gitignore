@@ -1,6 +1,10 @@
 /documents/service-principle.json
 /documents/deployment-multiple-customers.txt
 
+# Ignore environment variables with credentials
+.env
+**/.env
+
 # Ignore Terraform state files
 *.tfstate
 *.tfstate.backup

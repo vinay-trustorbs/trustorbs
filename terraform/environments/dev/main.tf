@@ -14,6 +14,10 @@ module "trustorbs" {
   database_instances    = 1
   database_storage_size = "20Gi"
 
+  # Grafana configuration for dev environment
+  grafana_admin_username = "admin"
+  grafana_admin_password = "Dev@Grafana2025"
+
   tags = {
     Environment = "development"
   }
@@ -29,4 +33,8 @@ output "aks_cluster_name" {
 
 output "keycloak_url" {
   value = module.trustorbs.keycloak_url
+}
+
+output "grafana_url" {
+  value = module.trustorbs.grafana_url
 }

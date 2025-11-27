@@ -1,0 +1,20 @@
+# grafana-certificate.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+  namespace: monitoring
+spec:
+  secretName: grafana-tls-secret
+  privateKey:
+    rotationPolicy: Always
+  commonName: "${commonName}"
+  dnsNames:
+    - "${dnsNames}"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer

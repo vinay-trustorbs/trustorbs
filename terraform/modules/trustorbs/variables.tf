@@ -35,3 +35,20 @@ variable "database_storage_size" {
   type        = string
   default     = "20Gi"
 }
+
+variable "grafana_admin_username" {
+  description = "Grafana admin username"
+  type        = string
+  default     = "admin"
+}
+
+variable "grafana_admin_password" {
+  description = "Grafana admin password (minimum 8 characters)"
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.grafana_admin_password) >= 8
+    error_message = "Grafana admin password must be at least 8 characters long."
+  }
+}
